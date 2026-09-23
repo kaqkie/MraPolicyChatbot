@@ -1,0 +1,109 @@
+@model MraPolicyChatbot.Models.AdminSettingsViewModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="row">
+    <aside class="col-12 col-md-3 mb-3">
+        <partial name="_AdminSidebar" />
+    </aside>
+
+    <section class="col-12 col-md-9">
+        <h1 class="h3 mb-3">Settings</h1>
+
+        @if (TempData["SettingsErrorMessage"] is not null)
+        {
+            <div class="alert alert-danger py-2" role="alert">@TempData["SettingsErrorMessage"]</div>
+        }
+        @if (TempData["SettingsSuccessMessage"] is not null)
+        {
+            <div class="alert alert-success py-2" role="alert">@TempData["SettingsSuccessMessage"]</div>
+        }
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">AI &amp; matching</h2>
+                <form asp-controller="Admin" asp-action="SaveGeneralSettings" method="post">
+                    <div class="mb-3">
+                        <label for="ollamaBaseUrl" class="form-label">Ollama address</label>
+                        <input type="text" class="form-control" id="ollamaBaseUrl" name="OllamaBaseUrl"
+                               value="@Model.OllamaBaseUrl" placeholder="http://localhost:11434" required />
+                        <div class="form-text">Where the local Ollama server is running. Only change this if Ollama is on a different machine or port.</div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label for="ollamaEmbeddingModel" class="form-label">Embedding model</label>
+                            <input type="text" class="form-control" id="ollamaEmbeddingModel" name="OllamaEmbeddingModel"
+                                   value="@Model.OllamaEmbeddingModel" required />
+                        </div>
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label for="ollamaChatModel" class="form-label">Answer model</label>
+                            <input type="text" class="form-control" id="ollamaChatModel" name="OllamaChatModel"
+                                   value="@Model.OllamaChatModel" required />
+                        </div>
+                    </div>
+                    <div class="form-text mb-3">
+                        Both models need to already be pulled in Ollama (<code>ollama pull &lt;model&gt;</code>) — this just tells the chatbot which ones to call.
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="similarityThreshold" class="form-label">Answer matching sensitivity</label>
+                        <input type="number" class="form-control" id="similarityThreshold" name="SimilarityThreshold"
+                               value="@Model.SimilarityThreshold.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                               min="0" max="1" step="0.05" required style="max-width: 160px;" />
+                        <div class="form-text">
+                            From 0 to 1. Lower is more permissive (more questions get an AI-generated answer, higher chance of a shaky match);
+                            higher is stricter (more questions fall back to "I don't have that information"). 0.5 is the default.
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="departments">
+                        <label for="departmentList" class="form-label">Departments</label>
+                        <textarea class="form-control" id="departmentList" name="DepartmentList" rows="8" required>@Model.DepartmentList</textarea>
+                        <div class="form-text">
+                            One department per line. Add a line to create a new department, delete a line to remove
+                            one, or edit a line's text to rename it. This is the list shown on Upload Policy / Edit Policy.
+                            Removing a department here doesn't change the category already saved on existing policies —
+                            edit those individually if they need to move to a different department.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save Settings</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Your password</h2>
+
+                @if (TempData["PasswordErrorMessage"] is not null)
+                {
+                    <div class="alert alert-danger py-2" role="alert">@TempData["PasswordErrorMessage"]</div>
+                }
+                @if (TempData["PasswordSuccessMessage"] is not null)
+                {
+                    <div class="alert alert-success py-2" role="alert">@TempData["PasswordSuccessMessage"]</div>
+                }
+
+                <form asp-controller="Admin" asp-action="ChangePassword" method="post">
+                    <div class="mb-3">
+                        <label for="currentPassword" class="form-label">Current password</label>
+                        <input type="password" class="form-control" id="currentPassword" name="currentPassword" autocomplete="current-password" required style="max-width: 320px;" />
+                    </div>
+                    <div class="row">
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label for="newPassword" class="form-label">New password</label>
+                            <input type="password" class="form-control" id="newPassword" name="newPassword" autocomplete="new-password" required />
+                        </div>
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label for="confirmNewPassword" class="form-label">Confirm new password</label>
+                            <input type="password" class="form-control" id="confirmNewPassword" name="confirmNewPassword" autocomplete="new-password" required />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-outline-secondary">Change Password</button>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>

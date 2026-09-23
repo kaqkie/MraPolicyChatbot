@@ -1,0 +1,628 @@
+:root {
+  --mra-green: #0B3A1D;
+  --mra-green-hover: #082D16;
+  --mra-text: #1f2328;
+  --mra-muted: #6b7280;
+  --mra-border: #e5e7eb;
+  --mra-surface: #ffffff;
+
+  /* Re-themes Bootstrap 5.3's own CSS custom properties so every
+     Bootstrap component that references var(--bs-primary) internally
+     (buttons, links, focus rings, etc.) picks up the MRA green without a
+     Sass rebuild. Keep this in sync with --mra-green above. */
+  --bs-primary: var(--mra-green);
+  --bs-primary-rgb: 11, 58, 29;
+  --bs-primary-text-emphasis: var(--mra-green);
+  --bs-primary-bg-subtle: #d7e4da;
+  --bs-primary-border-subtle: #a9c2b0;
+  --bs-link-color: var(--mra-green);
+  --bs-link-color-rgb: 11, 58, 29;
+  --bs-link-hover-color: var(--mra-green-hover);
+  --bs-link-hover-color-rgb: 8, 45, 22;
+}
+
+.btn-primary {
+  --bs-btn-hover-bg: var(--mra-green-hover);
+  --bs-btn-hover-border-color: var(--mra-green-hover);
+  --bs-btn-active-bg: var(--mra-green-hover);
+  --bs-btn-active-border-color: var(--mra-green-hover);
+}
+
+html {
+  font-size: 16px;
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 0;
+  background: #fbfbfa;
+  color: var(--mra-text);
+}
+
+/* ---------- Top nav (_Layout.cshtml) ---------- */
+
+.app-nav {
+  background: var(--mra-surface);
+  border-bottom: 1px solid var(--mra-border);
+}
+
+.app-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .75rem;
+  padding-block: .85rem;
+}
+
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  color: var(--mra-text) !important;
+  text-decoration: none;
+  font-size: .95rem;
+}
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(155deg, #1c5a35 0%, var(--mra-green) 55%, #082d16 100%);
+  box-shadow: 0 2px 6px rgba(11, 58, 29, .3), inset 0 1px 0 rgba(255, 255, 255, .12);
+  color: #fff;
+  flex: 0 0 auto;
+}
+
+.brand-name {
+  letter-spacing: .01em;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .35rem .7rem;
+  border-radius: 999px;
+  background: #f3f4f6;
+  font-size: .85rem;
+  color: var(--mra-text);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mra-green);
+  flex: 0 0 auto;
+  display: inline-block;
+}
+
+.user-role {
+  color: var(--mra-muted);
+  font-size: .78rem;
+}
+
+.btn-quiet {
+  border: 1px solid var(--mra-border);
+  background: transparent;
+  color: var(--mra-text);
+}
+
+.btn-quiet:hover {
+  background: #f3f4f6;
+  color: var(--mra-text);
+}
+
+.btn-ink {
+  background: var(--mra-green);
+  border-color: var(--mra-green);
+  color: #fff;
+}
+
+.btn-ink:hover,
+.btn-ink:focus-visible {
+  background: var(--mra-green-hover);
+  border-color: var(--mra-green-hover);
+  color: #fff;
+}
+
+.app-container {
+  max-width: 1080px;
+  padding-top: 1.75rem;
+  padding-bottom: 2rem;
+}
+
+.app-footer {
+  border-top: 1px solid var(--mra-border);
+  padding-block: 1rem;
+  color: var(--mra-muted);
+  font-size: .85rem;
+  margin-top: 2rem;
+}
+
+/* ---------- Login page (_LoginLayout.cshtml + Account/Login.cshtml) ---------- */
+
+.login-shell {
+  background: linear-gradient(180deg, #fbfbfa 0%, #f0f3f1 100%);
+}
+
+.login-footer {
+  margin-top: 0;
+  border-top: none;
+}
+
+.login-card {
+  width: min(420px, 92vw);
+  background: var(--mra-surface);
+  border: 1px solid var(--mra-border);
+  border-radius: 1.1rem;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, .08);
+  overflow: hidden;
+}
+
+.login-card-head {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: 1.1rem 1.5rem;
+  border-bottom: 1px solid var(--mra-border);
+  font-size: .9rem;
+  color: var(--mra-text);
+}
+
+.login-card-body {
+  padding: 1.75rem 1.5rem 2rem;
+}
+
+.login-card-body h1 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin-bottom: .25rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .72rem;
+  color: var(--mra-green);
+  font-weight: 600;
+  margin-bottom: .35rem;
+}
+
+/* ---------- Home page (Views/Home/Index.cshtml) ---------- */
+
+.home-hero {
+  padding-block: clamp(2.5rem, 8vw, 5rem);
+}
+
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--mra-green);
+  margin-bottom: 1.5rem;
+}
+
+.hero-kicker span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mra-green);
+  display: inline-block;
+}
+
+.home-hero h1 {
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  color: var(--mra-text);
+}
+
+.home-hero h1 em {
+  font-style: normal;
+  color: var(--mra-green);
+}
+
+.hero-copy {
+  font-size: 1.1rem;
+  color: var(--mra-muted);
+  max-width: 42ch;
+  margin-top: 1rem;
+}
+
+.hero-note {
+  border-left: 2px solid var(--mra-border);
+  padding-left: 1.25rem;
+}
+
+.note-number {
+  font-size: .8rem;
+  color: var(--mra-green);
+  font-weight: 700;
+  letter-spacing: .05em;
+}
+
+.hero-note p {
+  margin: .75rem 0 1rem;
+  color: var(--mra-text);
+}
+
+.note-rule {
+  width: 2.5rem;
+  height: 2px;
+  background: var(--mra-border);
+  margin-bottom: .75rem;
+}
+
+.note-caption {
+  font-size: .8rem;
+  color: var(--mra-muted);
+}
+
+.chat-page-header {
+  padding-top: .35rem;
+}
+
+/* No card chrome (border/shadow/background) — like ChatGPT, the
+   conversation sits directly on the page background rather than inside a
+   boxed panel. */
+.chat-shell {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Before the first message: the greeting + composer are centered together
+   as one block in the middle of the page, ChatGPT's "new chat" landing
+   look, rather than pinned to the bottom under a mostly-empty scroll area. */
+.chat-shell.chat-idle {
+  justify-content: center;
+}
+
+.chat-shell.chat-idle .chat-message-area {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.chat-shell.chat-idle .chat-composer-wrap {
+  background: none;
+}
+
+.chat-message-area {
+  flex: 1 1 auto;
+  min-height: 48vh;
+  overflow-y: auto;
+  padding: 2rem clamp(1rem, 5vw, 5rem);
+}
+
+.chat-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.chat-empty-state h2 {
+  margin: 0 0 1.5rem;
+  color: var(--mra-text);
+  font-size: clamp(1.6rem, 3.2vw, 2.1rem);
+  font-weight: 400;
+  letter-spacing: -.01em;
+}
+
+.chat-composer-wrap {
+  padding: 1rem clamp(1rem, 5vw, 5rem) 1.25rem;
+  background: linear-gradient(to top, #fff 72%, rgba(255,255,255,.88));
+}
+
+.chat-composer {
+  min-height: 54px;
+  max-width: 720px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .35rem .45rem .35rem .7rem;
+  border: 1px solid #d7dce1;
+  border-radius: 999px;
+  background: var(--mra-surface);
+  box-shadow: 0 5px 18px rgba(15, 23, 42, .1);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.chat-composer:focus-within {
+  border-color: var(--mra-green);
+  box-shadow: 0 0 0 3px rgba(11, 58, 29, .12), 0 8px 22px rgba(15, 23, 42, .1);
+}
+
+.chat-input.form-control {
+  min-width: 0;
+  border: 0;
+  box-shadow: none;
+  padding: .45rem .25rem;
+  background: transparent;
+}
+
+.chat-input.form-control:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.chat-add-button,
+.chat-send-button {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.chat-add-button {
+  color: var(--mra-muted);
+  background: transparent;
+}
+
+.chat-add-button:hover {
+  color: var(--mra-text);
+  background: #f3f4f6;
+}
+
+.chat-send-button {
+  color: #fff;
+  background: var(--mra-green);
+  font-size: 1.25rem;
+}
+
+.chat-send-button:hover,
+.chat-send-button:focus-visible {
+  background: var(--mra-green-hover);
+}
+
+.chat-send-button:disabled {
+  opacity: .55;
+}
+
+.chat-bubble {
+  max-width: 75%;
+  padding: .6rem .9rem;
+  border-radius: .75rem;
+}
+
+.chat-bubble-user {
+  background-color: var(--mra-green);
+  color: #fff;
+  border-bottom-right-radius: .2rem;
+}
+
+.chat-bubble-bot {
+  background-color: #f1f3f5;
+  color: #212529;
+  border-bottom-left-radius: .2rem;
+}
+
+.list-group-item.active {
+  background-color: var(--mra-green);
+  border-color: var(--mra-green);
+}
+
+@media (max-width: 576px) {
+  .chat-page-header h1 {
+    font-size: 1.35rem;
+  }
+
+  .chat-message-area {
+    min-height: 52vh;
+    padding-inline: .75rem;
+  }
+
+  .chat-composer-wrap {
+    padding-inline: .75rem;
+  }
+
+  .chat-bubble {
+    max-width: 90%;
+  }
+}
+
+/* ---------- Voice / mic (Views/Chat/Index.cshtml) ---------- */
+
+/* Base for the two icon buttons that sit between the text input and the
+   send button: the mic (speech-to-text into the box) and the voice-mode
+   toggle (full overlay). Sized to match .chat-add-button / .chat-send-button. */
+.chat-icon-button {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--mra-muted);
+  background: transparent;
+  transition: color .15s ease, background-color .15s ease;
+}
+
+.chat-icon-button:hover {
+  color: var(--mra-text);
+  background: #f3f4f6;
+}
+
+/* Shown on the mic button (not the voice-mode button) while it is actively
+   listening, so it reads clearly as "recording". */
+.chat-icon-button.mic-active {
+  color: #fff;
+  background: #d1332f;
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(209, 51, 47, .35); }
+  50% { box-shadow: 0 0 0 6px rgba(209, 51, 47, 0); }
+}
+
+/* The voice-mode trigger reads as the primary action (like the filled
+   circular button in the ChatGPT-style reference), so unlike the plain
+   mic icon it is filled with the brand color at rest, not just on hover. */
+.voice-mode-button {
+  color: #fff;
+  background: var(--mra-green);
+}
+
+.voice-mode-button:hover,
+.voice-mode-button:focus-visible {
+  color: #fff;
+  background: var(--mra-green-hover);
+}
+
+.chat-voice-hint {
+  margin: .5rem clamp(1rem, 5vw, 5rem) 0;
+  font-size: .78rem;
+  color: var(--mra-muted);
+  text-align: center;
+}
+
+/* In-page voice mode: inserted into the normal message flow (see the
+   Razor comment above #voicePanel), not layered over the page — any
+   earlier conversation stays visible above it, and the page header/nav are
+   untouched. `[hidden]` is re-declared because an author rule of equal
+   specificity to a plain .voice-panel{display:flex} would otherwise beat
+   the browser's default `[hidden]{display:none}` and keep it visible. */
+.voice-panel {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  padding: 2rem 1rem 1rem;
+  text-align: center;
+}
+
+.voice-panel[hidden] {
+  display: none;
+}
+
+.voice-orb-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 120px;
+  height: 120px;
+}
+
+/* A soft ambient shadow beneath the orb — like it's resting on the page —
+   rather than the orb floating with nothing grounding it. */
+.voice-orb-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52%;
+  height: 12px;
+  background: radial-gradient(ellipse at center, rgba(11, 58, 29, .22) 0%, rgba(11, 58, 29, 0) 72%);
+  border-radius: 50%;
+}
+
+/* A calmer, flatter sphere than a glossy 3D ball: muted mid-tones instead
+   of a bright specular highlight against a near-black edge, and a soft,
+   wide, low-opacity glow instead of a hard shadow. */
+.voice-orb {
+  position: relative;
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #7fcf9c 0%, var(--mra-green) 68%, #0c3a20 100%);
+  box-shadow: 0 0 0 rgba(11, 58, 29, 0);
+  filter: drop-shadow(0 6px 14px rgba(11, 58, 29, .25));
+  transition: width .35s ease, height .35s ease, filter .35s ease;
+}
+
+/* Listening: a slow, calm breathing pulse. */
+.voice-orb.listening {
+  animation: voice-orb-listening 2.2s ease-in-out infinite;
+}
+
+@keyframes voice-orb-listening {
+  0%, 100% { width: 60%; height: 60%; filter: drop-shadow(0 6px 14px rgba(11, 58, 29, .25)); }
+  50% { width: 66%; height: 66%; filter: drop-shadow(0 8px 20px rgba(11, 58, 29, .35)); }
+}
+
+/* Thinking: a tighter, quicker pulse. */
+.voice-orb.thinking {
+  animation: voice-orb-thinking 0.9s ease-in-out infinite;
+}
+
+@keyframes voice-orb-thinking {
+  0%, 100% { width: 54%; height: 54%; filter: drop-shadow(0 5px 10px rgba(11, 58, 29, .2)); }
+  50% { width: 59%; height: 59%; filter: drop-shadow(0 7px 16px rgba(11, 58, 29, .32)); }
+}
+
+/* Speaking: faster, larger pulse so it reads as "actively talking". */
+.voice-orb.speaking {
+  animation: voice-orb-speaking 0.6s ease-in-out infinite;
+}
+
+@keyframes voice-orb-speaking {
+  0%, 100% { width: 62%; height: 62%; filter: drop-shadow(0 7px 16px rgba(11, 58, 29, .3)); }
+  50% { width: 70%; height: 70%; filter: drop-shadow(0 10px 24px rgba(11, 58, 29, .4)); }
+}
+
+.voice-status {
+  margin: 0;
+  font-size: .95rem;
+  font-weight: 500;
+  color: var(--mra-text);
+}
+
+.voice-transcript {
+  margin: 0;
+  max-width: 46ch;
+  min-height: 1.4em;
+  text-align: center;
+  color: var(--mra-muted);
+  font-size: .85rem;
+}
+
+/* #voiceComposerBar reuses .chat-composer/.chat-input/.chat-send-button
+   directly (see Chat/Index.cshtml) so it reads as the same composer pill,
+   just in its "listening" state — only the small muted mic glyph on the
+   left needs its own rule. */
+.voice-mic-indicator {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  color: var(--mra-muted);
+}
+
+@media (max-width: 576px) {
+  .voice-orb-wrap {
+    width: 96px;
+    height: 96px;
+  }
+
+  .voice-status {
+    font-size: .88rem;
+  }
+
+  .voice-transcript {
+    font-size: .8rem;
+  }
+}

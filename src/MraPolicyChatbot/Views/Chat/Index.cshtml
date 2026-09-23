@@ -1,0 +1,1274 @@
+@{
+    ViewData["Title"] = "Chat";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3 chat-page-header">
+    <h1 class="h3 mb-0">Policy Desk</h1>
+    @if (Context.Session.GetRole() == "Admin")
+    {
+        <a asp-controller="Admin" asp-action="Index" class="btn btn-outline-secondary btn-sm">Admin Dashboard</a>
+    }
+</div>
+
+@* Phase 6: hidden form purely to render a request-verification token for the
+   AJAX POST below (sent as the X-CSRF-TOKEN header, not submitted as a form). *@
+<form id="antiforgeryForm">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="chat-shell chat-idle" id="chatShell">
+    <div class="chat-message-area" id="chatMessageArea">
+        <div class="chat-empty-state" id="chatEmptyState">
+            <h2 id="chatGreeting">What would you like to know?</h2>
+        </div>
+
+        @* ChatGPT-style voice mode: this panel is inserted into the normal
+           message flow (like the "Thinking..." bubble below) rather than
+           covering the page — any earlier messages in the conversation stay
+           fully visible above it while it's open. *@
+        <div class="voice-panel" id="voicePanel" hidden>
+            <div class="voice-orb-wrap">
+                <div class="voice-orb" id="voiceOrb"></div>
+            </div>
+            <p class="voice-status" id="voiceStatus">Listening...</p>
+            <p class="voice-transcript" id="voiceTranscript"></p>
+        </div>
+    </div>
+    <div class="chat-composer-wrap">
+        <form id="chatForm" class="chat-composer" onsubmit="return false;">
+            <button type="button" class="chat-add-button" aria-label="Add context" title="Add context">+</button>
+            <input type="text" id="chatInput" class="form-control chat-input" placeholder="Ask about a policy..." aria-label="Ask about a policy" autocomplete="off" />
+            <button type="button" id="chatMicButton" class="chat-icon-button" aria-label="Speak your question" title="Speak your question" hidden>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" />
+                    <path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-3.08A7 7 0 0 0 19 11z" />
+                </svg>
+            </button>
+            <button type="button" id="voiceModeButton" class="chat-icon-button voice-mode-button" aria-label="Open voice mode" title="Open voice mode" hidden>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+                    <rect x="2.4" y="10" width="2.2" height="4" rx="1.1" />
+                    <rect x="7" y="6" width="2.2" height="12" rx="1.1" />
+                    <rect x="11.6" y="2" width="2.2" height="20" rx="1.1" />
+                    <rect x="16.2" y="6" width="2.2" height="12" rx="1.1" />
+                    <rect x="20.8" y="10" width="2.2" height="4" rx="1.1" />
+                </svg>
+            </button>
+            <button type="submit" id="chatSendButton" class="chat-send-button" aria-label="Send question" title="Send question">&#8593;</button>
+        </form>
+
+        @* Replaces #chatForm while voice mode is active — same pill styling
+           (reuses .chat-composer/.chat-input/.chat-send-button) so it reads
+           as the same composer, just in its "listening" state, rather than
+           a different control bolted on. *@
+        <div id="voiceComposerBar" class="chat-composer" hidden>
+            <span class="voice-mic-indicator" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" />
+                    <path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-3.08A7 7 0 0 0 19 11z" />
+                </svg>
+            </span>
+            <input type="text" id="voiceFallbackInput" class="form-control chat-input" placeholder="Type instead..." autocomplete="off" />
+            <button type="button" id="voiceCloseButton" class="chat-send-button" aria-label="Close voice mode" title="Close voice mode">&times;</button>
+        </div>
+
+        <p class="chat-voice-hint" id="chatVoiceHint" hidden>Voice input isn't supported in this browser — try Chrome or Edge.</p>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const chatShell = document.getElementById('chatShell');
+            const chatMessageArea = document.getElementById('chatMessageArea');
+            const chatGreeting = document.getElementById('chatGreeting');
+            const chatForm = document.getElementById('chatForm');
+            const chatInput = document.getElementById('chatInput');
+            const chatSendButton = document.getElementById('chatSendButton');
+            const chatMicButton = document.getElementById('chatMicButton');
+            const chatVoiceHint = document.getElementById('chatVoiceHint');
+            const voiceModeButton = document.getElementById('voiceModeButton');
+            const voicePanel = document.getElementById('voicePanel');
+            const voiceComposerBar = document.getElementById('voiceComposerBar');
+            const voiceCloseButton = document.getElementById('voiceCloseButton');
+            const voiceOrb = document.getElementById('voiceOrb');
+            const voiceStatus = document.getElementById('voiceStatus');
+            const voiceTranscript = document.getElementById('voiceTranscript');
+            const voiceFallbackInput = document.getElementById('voiceFallbackInput');
+            const antiforgeryToken = document
+                .querySelector('#antiforgeryForm input[name="__RequestVerificationToken"]')
+                .value;
+
+            // Used for the landing greeting below. JSON-serialized
+            // server-side (rather than interpolated raw) so it comes out as
+            // a safely-escaped JS string literal no matter what characters
+            // the username contains.
+            const currentUsername = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Context.Session.GetUsername() ?? ""));
+
+            // "employee" -> "Employee" so the greeting reads like a name
+            // rather than a raw login handle, without needing a separate
+            // display-name field on the account.
+            function titleCase(value) {
+                return value.length > 0 ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+            }
+
+            // Based on the browser's local clock, so it matches whatever
+            // time it actually is for the person using it (not the
+            // server's time zone).
+            function getTimeOfDayLabel() {
+                const hour = new Date().getHours();
+                if (hour >= 5 && hour < 12) {
+                    return 'morning';
+                }
+                if (hour >= 12 && hour < 17) {
+                    return 'afternoon';
+                }
+                return 'evening';
+            }
+
+            // The ChatGPT-style landing greeting shown in place of the chat
+            // history before the first message. Deliberately NOT a single
+            // fixed phrase — ChatGPT's own landing greeting rotates on
+            // every visit, and a chatbot that says the exact same thing
+            // every single time reads as static/robotic. Picked entirely
+            // client-side (random on each page load) — no admin step, no
+            // setting to configure, it just varies on its own.
+            const greetingTemplates = [
+                'Good {time}, {name}.',
+                'Welcome back, {name}.',
+                'Hi {name}, what can I help with today?',
+                'Ready when you are, {name}.',
+                '{name}, what would you like to know?',
+                'Good {time}. Let\u2019s find what you need.',
+                'Hey {name} \u2014 ask me anything about policy.',
+            ];
+
+            if (chatGreeting) {
+                const timeLabel = getTimeOfDayLabel();
+                const displayName = titleCase(currentUsername) || 'there';
+                const template = greetingTemplates[Math.floor(Math.random() * greetingTemplates.length)];
+                chatGreeting.textContent = template
+                    .replace(/\{time\}/g, timeLabel)
+                    .replace(/\{name\}/g, displayName);
+            }
+
+            // Feature detection: the Web Speech APIs are only reliably
+            // available in Chromium-based browsers (Chrome, Edge) at the
+            // time of writing — not Firefox. Everything below degrades
+            // gracefully: the mic/voice-mode buttons simply stay hidden
+            // (and text chat works exactly as before) when unsupported.
+            const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const supportsSpeechRecognition = !!SpeechRecognitionImpl;
+            const supportsSpeechSynthesis = 'speechSynthesis' in window;
+
+            if (supportsSpeechRecognition) {
+                chatMicButton.hidden = false;
+                voiceModeButton.hidden = false;
+            } else {
+                chatVoiceHint.hidden = false;
+            }
+
+            function removeEmptyState() {
+                const emptyState = document.getElementById('chatEmptyState');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+
+                // ChatGPT-style transition: the greeting + centered composer
+                // only show before the first message. The instant a message
+                // is sent (typed, mic, or voice mode), the layout switches
+                // to a normal top-anchored, scrolling conversation with the
+                // composer pinned to the bottom.
+                chatShell.classList.remove('chat-idle');
+            }
+
+            function appendLiveBubble(sender) {
+                removeEmptyState();
+
+                const wrapper = document.createElement('div');
+                wrapper.className = sender === 'You'
+                    ? 'd-flex justify-content-end mb-3'
+                    : 'd-flex justify-content-start mb-3';
+
+                const bubble = document.createElement('div');
+                bubble.className = sender === 'You' ? 'chat-bubble chat-bubble-user' : 'chat-bubble chat-bubble-bot';
+
+                const label = document.createElement('div');
+                label.className = 'small fw-semibold mb-1';
+                label.textContent = sender;
+                bubble.appendChild(label);
+
+                const body = document.createElement('div');
+                bubble.appendChild(body);
+
+                wrapper.appendChild(bubble);
+                // Insert above the voice panel (if it's open) rather than
+                // after it, so the orb/status always reads as the "live"
+                // element at the bottom of the conversation, with message
+                // history accumulating above it — not the other way round.
+                chatMessageArea.insertBefore(wrapper, voicePanel.hidden ? null : voicePanel);
+                chatMessageArea.scrollTop = chatMessageArea.scrollHeight;
+
+                return { wrapper, bubble, body };
+            }
+
+            function finalizeBubbleSources(bubble, sources) {
+                if (sources && sources.length > 0) {
+                    const sourceLine = document.createElement('div');
+                    sourceLine.className = 'small text-muted mt-1';
+                    sourceLine.textContent = 'Source: ' + sources.join(', ');
+                    bubble.appendChild(sourceLine);
+                }
+            }
+
+            // Simple one-shot bubble (used for the "You" side, which never
+            // streams) — built on top of appendLiveBubble/
+            // finalizeBubbleSources so there's one rendering path, not two.
+            function appendBubble(sender, text, sources) {
+                const { bubble, body } = appendLiveBubble(sender);
+                body.textContent = text;
+                finalizeBubbleSources(bubble, sources);
+            }
+
+            function appendThinking() {
+                removeEmptyState();
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'd-flex justify-content-start mb-3';
+                wrapper.id = 'chatThinkingBubble';
+
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble chat-bubble-bot text-muted fst-italic';
+                bubble.textContent = 'Thinking...';
+
+                wrapper.appendChild(bubble);
+                chatMessageArea.appendChild(wrapper);
+                chatMessageArea.scrollTop = chatMessageArea.scrollHeight;
+            }
+
+            function removeThinking() {
+                const thinking = document.getElementById('chatThinkingBubble');
+                if (thinking) {
+                    thinking.remove();
+                }
+            }
+
+            // Shared by the normal composer, the mic button's transcript,
+            // and voice mode: posts to the real /Chat/Ask endpoint (the
+            // same database-backed ChatService as the rest of the app),
+            // which now streams its answer back as NDJSON — one small JSON
+            // object per line — instead of one blob after everything is
+            // generated. onToken fires as each piece of the answer arrives
+            // so the caller can render/speak progressively; the returned
+            // sources arrive only once the stream finishes, since that's
+            // genuinely when they're known to the caller (though the
+            // server actually determines them right after retrieval —
+            // rendering-wise, waiting for stream end to show the "Source:"
+            // line matches how it always looked, just now under a
+            // progressively-filled answer instead of a static one).
+            async function askChatbotStream(question, callbacks) {
+                const onToken = (callbacks && callbacks.onToken) || function () {};
+
+                try {
+                    const response = await fetch('@Url.Action("Ask", "Chat")', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': antiforgeryToken,
+                        },
+                        body: JSON.stringify({ question: question }),
+                    });
+
+                    if (!response.ok || !response.body) {
+                        onToken('Something went wrong sending your question. Please try again.');
+                        return { sources: null };
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    let sources = null;
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) {
+                            break;
+                        }
+
+                        buffer += decoder.decode(value, { stream: true });
+
+                        let newlineIndex;
+                        while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+                            const line = buffer.slice(0, newlineIndex);
+                            buffer = buffer.slice(newlineIndex + 1);
+                            if (!line) {
+                                continue;
+                            }
+
+                            let parsed;
+                            try {
+                                parsed = JSON.parse(line);
+                            } catch (parseErr) {
+                                // A line split across two network chunks
+                                // shouldn't normally happen (each NDJSON
+                                // line is written+flushed as one unit
+                                // server-side) but skip rather than crash
+                                // the whole stream if it ever does.
+                                continue;
+                            }
+
+                            if (parsed.type === 'token') {
+                                onToken(parsed.text);
+                            } else if (parsed.type === 'sources') {
+                                sources = parsed.sources;
+                            }
+                        }
+                    }
+
+                    return { sources };
+                } catch (err) {
+                    onToken('Something went wrong sending your question. Please try again.');
+                    return { sources: null };
+                }
+            }
+
+            chatForm.addEventListener('submit', async function () {
+                const question = chatInput.value.trim();
+                if (!question) {
+                    return;
+                }
+
+                appendBubble('You', question, null);
+                chatInput.value = '';
+                chatInput.disabled = true;
+                chatSendButton.disabled = true;
+                appendThinking();
+
+                // The bot bubble is created empty on the FIRST token,
+                // not before — "Thinking..." stays up for whatever the
+                // real prompt-processing wait is, then gets replaced by a
+                // bubble that fills in live as the rest streams in. This
+                // is what makes typed chat visibly start responding the
+                // moment the model produces anything, instead of the
+                // answer appearing all at once after the full generation
+                // finishes.
+                let liveBubble = null;
+                let liveText = '';
+
+                const result = await askChatbotStream(question, {
+                    onToken: function (chunk) {
+                        if (!liveBubble) {
+                            removeThinking();
+                            liveBubble = appendLiveBubble('Bot');
+                        }
+                        liveText += chunk;
+                        liveBubble.body.textContent = liveText;
+                        chatMessageArea.scrollTop = chatMessageArea.scrollHeight;
+                    },
+                });
+
+                if (!liveBubble) {
+                    // Defensive fallback — shouldn't normally happen, since
+                    // even the fixed "no match"/"unavailable" messages are
+                    // sent as a token, but avoids leaving "Thinking..." up
+                    // forever in the one case something upstream sends
+                    // nothing at all.
+                    removeThinking();
+                    liveBubble = appendLiveBubble('Bot');
+                    liveBubble.body.textContent = 'Something went wrong. Please try again.';
+                }
+
+                finalizeBubbleSources(liveBubble.bubble, result.sources);
+
+                chatInput.disabled = false;
+                chatSendButton.disabled = false;
+                chatInput.focus();
+            });
+
+            // ---------- Mic button: speech-to-text into the text box only ----------
+            // Fills the input so you can review/edit before pressing Send —
+            // it never sends on its own.
+            let micRecognition = null;
+
+            if (supportsSpeechRecognition) {
+                chatMicButton.addEventListener('click', function () {
+                    if (micRecognition) {
+                        micRecognition.stop();
+                        return;
+                    }
+
+                    micRecognition = new SpeechRecognitionImpl();
+                    micRecognition.lang = 'en-US';
+                    micRecognition.interimResults = true;
+                    // true, with a manual silence timer below — same fix,
+                    // same reasoning, as voice mode's
+                    // startVoiceRecognitionSession: continuous=false let
+                    // Chrome's own end-of-speech guess cut dictation off
+                    // mid-sentence on a pause.
+                    micRecognition.continuous = true;
+
+                    let finalTranscript = '';
+                    let micSilenceTimer = null;
+                    chatMicButton.classList.add('mic-active');
+
+                    const resetMicSilenceTimer = function () {
+                        clearTimeout(micSilenceTimer);
+                        micSilenceTimer = setTimeout(function () {
+                            if (micRecognition) {
+                                micRecognition.stop();
+                            }
+                        }, SILENCE_TIMEOUT_MS);
+                    };
+
+                    micRecognition.onresult = function (event) {
+                        let interim = '';
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            if (event.results[i].isFinal) {
+                                finalTranscript += event.results[i][0].transcript;
+                            } else {
+                                interim += event.results[i][0].transcript;
+                            }
+                        }
+                        chatInput.value = (finalTranscript + interim).trim();
+                        resetMicSilenceTimer();
+                    };
+
+                    micRecognition.onend = function () {
+                        clearTimeout(micSilenceTimer);
+                        chatMicButton.classList.remove('mic-active');
+                        micRecognition = null;
+                        chatInput.focus();
+                    };
+
+                    micRecognition.onerror = function () {
+                        clearTimeout(micSilenceTimer);
+                        chatMicButton.classList.remove('mic-active');
+                        micRecognition = null;
+                    };
+
+                    resetMicSilenceTimer();
+                    micRecognition.start();
+                });
+            }
+
+            // ---------- Voice mode: full hands-free overlay ----------
+            let voiceActive = false;
+            let voiceRecognition = null;
+
+            // Voice selection, best available first — biased toward a
+            // calm, natural-sounding MALE voice specifically (previously
+            // this pool mixed male and female names together and took
+            // whichever "natural" voice came first, which is why it could
+            // land on a female voice like Aria/Jenny/Sonia/Libby):
+            //   1. A "Natural"/neural voice whose name also matches a
+            //      known male voice — e.g. Edge's free built-in "Microsoft
+            //      Guy Online (Natural)" or "Microsoft Ryan Online
+            //      (Natural)". These are genuinely close to a real person,
+            //      streamed by the OS/browser itself at no cost and no
+            //      integration work on our side (same free Web Speech API
+            //      — this is just picking a better voice it already
+            //      offers, not a new service).
+            //   2. Any other voice matching a known male name (Guy, Ryan,
+            //      Daniel, David, Mark, Thomas, George, or "UK English
+            //      Male") even without "natural" in the string.
+            //   3. Any other "Natural"/neural voice, as a fallback if no
+            //      male one is available on this machine — still better
+            //      than a flat offline voice even if not the requested
+            //      gender.
+            //   4. Whatever's first.
+            // The voice list loads asynchronously in some browsers, hence
+            // the onvoiceschanged listener as well as the initial call.
+            let preferredVoice = null;
+            const MALE_VOICE_NAME_PATTERN = /\b(guy|ryan|daniel|david|mark|thomas|george)\b|uk english male|us english male/i;
+
+            // Shared delivery settings for every utterance voice mode
+            // speaks (the greeting, "I'm listening" announcements, and
+            // answers) — kept in one place so the whole voice model has
+            // one consistent character rather than each utterance tuning
+            // itself slightly differently. Pitch nudged below neutral
+            // (0.92) and rate eased back a touch further (0.93): together
+            // these read as a lower, more relaxed male register rather
+            // than a brighter/faster default voice — "smooth and calm"
+            // rather than urgent or robotic.
+            const VOICE_RATE = 0.93;
+            const VOICE_PITCH = 0.92;
+
+            function pickPreferredVoice() {
+                if (!supportsSpeechSynthesis) {
+                    return;
+                }
+
+                const voices = window.speechSynthesis.getVoices();
+                if (!voices.length) {
+                    return;
+                }
+
+                const englishVoices = voices.filter(function (v) {
+                    return v.lang && v.lang.toLowerCase().indexOf('en') === 0;
+                });
+                const pool = englishVoices.length > 0 ? englishVoices : voices;
+
+                preferredVoice =
+                    pool.find(function (v) { return /natural/i.test(v.name) && MALE_VOICE_NAME_PATTERN.test(v.name); }) ||
+                    pool.find(function (v) { return MALE_VOICE_NAME_PATTERN.test(v.name); }) ||
+                    pool.find(function (v) { return /natural/i.test(v.name); }) ||
+                    pool.find(function (v) { return v.localService === false; }) ||
+                    pool[0];
+            }
+
+            if (supportsSpeechSynthesis) {
+                pickPreferredVoice();
+                window.speechSynthesis.onvoiceschanged = pickPreferredVoice;
+            }
+
+            function setVoiceStatus(text) {
+                voiceStatus.textContent = text;
+            }
+
+            // A short, unmistakable two-tone chime marking "your turn to
+            // talk now" — played through the Web Audio API rather than
+            // speechSynthesis, so it's independent of the TTS engine (see
+            // the notes above speakThenListen on how unreliable that can
+            // be) and always audible even if a greeting/answer failed to
+            // speak. Voice mode is meant to be used without staring at the
+            // screen, so the on-screen "Listening..." text alone isn't
+            // enough of a cue that it's safe to start talking.
+            let audioCtx = null;
+            function playListeningChime() {
+                try {
+                    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+
+                    const now = audioCtx.currentTime;
+                    const oscillator = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    oscillator.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(660, now);
+                    oscillator.frequency.setValueAtTime(880, now + 0.09);
+
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.22);
+                } catch (e) {
+                    // Web Audio unavailable/blocked — the visual "Listening..."
+                    // status still updates, so this is a nice-to-have, not a
+                    // required signal.
+                }
+            }
+
+            // Short, varied phrases spoken out loud right as listening
+            // begins — the actual words the user asked for, not just a
+            // tone. Kept to a handful of short options so it doesn't sound
+            // like a scripted robot repeating the exact same line every
+            // single time.
+            const listeningAnnouncements = [
+                "I'm listening.",
+                'Go ahead.',
+                "I'm listening — go ahead.",
+            ];
+
+            // Speaks one of the phrases above, then calls back once it's
+            // done (or after a short watchdog if the browser drops it —
+            // same defensive pattern as speakThenListen below, kept
+            // deliberately separate/simpler since this is always exactly
+            // one short utterance rather than a queued multi-sentence
+            // answer).
+            function speakListeningAnnouncement(callback) {
+                if (!supportsSpeechSynthesis) {
+                    callback();
+                    return;
+                }
+
+                const phrase = listeningAnnouncements[Math.floor(Math.random() * listeningAnnouncements.length)];
+                const utterance = new SpeechSynthesisUtterance(phrase);
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice;
+                }
+                utterance.rate = VOICE_RATE;
+                utterance.pitch = VOICE_PITCH;
+                utterance.volume = 1;
+
+                let settled = false;
+                const advance = function () {
+                    if (settled) {
+                        return;
+                    }
+                    settled = true;
+                    clearTimeout(watchdog);
+                    callback();
+                };
+                utterance.onend = advance;
+                utterance.onerror = advance;
+                const watchdog = setTimeout(advance, 2500);
+
+                window.speechSynthesis.resume();
+                window.speechSynthesis.speak(utterance);
+            }
+
+            // announce=true only on a genuine transition from speaking into
+            // listening (right after the greeting or an answer finishes) —
+            // deliberately NOT on the internal retry paths below (empty
+            // recognition result, recognition error), which call this
+            // again every ~600ms while the mic is having trouble; speaking
+            // a phrase on every one of those would be obnoxious rather
+            // than helpful. Those retries still get the chime, just not
+            // the spoken words.
+            //
+            // Beyond that, the spoken announcement itself is now skipped
+            // after the FIRST turn of a voice-mode session (hasAnnouncedListening,
+            // reset in openVoiceMode) — it's genuinely useful once, to
+            // teach a new user the listen/speak rhythm, but on every
+            // later turn it just adds another ~1-2 seconds of speech
+            // before the mic reopens, for no new information. The chime
+            // alone (a fraction of a second) still plays every time, so
+            // there's always a clear "your turn" cue.
+            let hasAnnouncedListening = false;
+
+            function startVoiceListening(announce) {
+                if (!voiceActive) {
+                    return;
+                }
+
+                const beginListening = function () {
+                    if (!voiceActive) {
+                        return;
+                    }
+
+                    voiceRecognition = new SpeechRecognitionImpl();
+                    voiceRecognition.lang = 'en-US';
+                    voiceRecognition.interimResults = true;
+                    // true: see the comment above startVoiceRecognitionSession
+                    // — this hands "when to stop listening" to our own
+                    // silence timer instead of the browser's built-in (and
+                    // sometimes too-eager) end-of-speech detector.
+                    voiceRecognition.continuous = true;
+
+                    voiceOrb.classList.remove('thinking', 'speaking');
+                    voiceOrb.classList.add('listening');
+                    setVoiceStatus('Listening...');
+                    voiceTranscript.textContent = '';
+                    playListeningChime();
+
+                    startVoiceRecognitionSession();
+                };
+
+                if (announce && !hasAnnouncedListening) {
+                    hasAnnouncedListening = true;
+                    voiceOrb.classList.add('speaking');
+                    setVoiceStatus("I'm listening...");
+                    speakListeningAnnouncement(function () {
+                        voiceOrb.classList.remove('speaking');
+                        beginListening();
+                    });
+                } else {
+                    beginListening();
+                }
+            }
+
+            // Chrome/Edge's own built-in "end of speech" detector is what
+            // was cutting people off mid-sentence — with continuous=false
+            // it decides on its own, after a fairly short pause, that
+            // you've finished talking and fires onend, discarding whatever
+            // you were about to say next. Fixed by taking that decision
+            // away from the browser: continuous=true means it keeps
+            // listening indefinitely, and WE decide when to stop, based on
+            // an actual silence timer that resets every time new speech
+            // comes in (SILENCE_TIMEOUT_MS below) rather than the engine's
+            // opaque internal guess. MAX_LISTEN_MS is just a safety cap so
+            // a stuck/misbehaving recognition session can't listen forever
+            // if something goes wrong.
+            const SILENCE_TIMEOUT_MS = 1800;
+            const MAX_LISTEN_MS = 45000;
+
+            function startVoiceRecognitionSession() {
+                let finalTranscript = '';
+                let silenceTimer = null;
+                let maxTimer = null;
+
+                const stopListening = function () {
+                    clearTimeout(silenceTimer);
+                    clearTimeout(maxTimer);
+                    if (voiceRecognition) {
+                        // onend (below) does the actual hand-off to
+                        // voiceSendQuestion/startVoiceListening — calling
+                        // stop() here just ends the browser's capture.
+                        voiceRecognition.stop();
+                    }
+                };
+
+                const resetSilenceTimer = function () {
+                    clearTimeout(silenceTimer);
+                    silenceTimer = setTimeout(stopListening, SILENCE_TIMEOUT_MS);
+                };
+
+                voiceRecognition.onresult = function (event) {
+                    let interim = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interim += event.results[i][0].transcript;
+                        }
+                    }
+                    voiceTranscript.textContent = (finalTranscript + interim).trim();
+                    // Keep the transcript in view as it grows — see the
+                    // auto-scroll notes on appendBubble/openVoiceMode for
+                    // why this matters in voice mode specifically.
+                    chatMessageArea.scrollTop = chatMessageArea.scrollHeight;
+                    // Any new speech (interim or final) means the person
+                    // is still talking — push the silence deadline out
+                    // instead of cutting them off.
+                    resetSilenceTimer();
+                };
+
+                voiceRecognition.onend = function () {
+                    clearTimeout(silenceTimer);
+                    clearTimeout(maxTimer);
+                    voiceOrb.classList.remove('listening');
+                    const question = finalTranscript.trim();
+                    if (!voiceActive) {
+                        return;
+                    }
+                    if (question) {
+                        voiceSendQuestion(question);
+                    } else {
+                        startVoiceListening();
+                    }
+                };
+
+                voiceRecognition.onerror = function () {
+                    clearTimeout(silenceTimer);
+                    clearTimeout(maxTimer);
+                    voiceOrb.classList.remove('listening');
+                    if (voiceActive) {
+                        setTimeout(function () {
+                            if (voiceActive) {
+                                startVoiceListening();
+                            }
+                        }, 600);
+                    }
+                };
+
+                // Starts ticking the instant listening begins too, so
+                // someone who never says anything at all still gets
+                // handed back to startVoiceListening() rather than the
+                // mic staying open silently forever.
+                resetSilenceTimer();
+                maxTimer = setTimeout(stopListening, MAX_LISTEN_MS);
+
+                voiceRecognition.start();
+            }
+
+            async function voiceSendQuestion(question) {
+                voiceTranscript.textContent = '';
+                setVoiceStatus('Thinking...');
+                voiceOrb.classList.remove('listening');
+                voiceOrb.classList.add('thinking');
+                appendBubble('You', question, null);
+
+                // The AI answering here runs locally on your own machine
+                // (no cloud API). The wait BEFORE the first word is still
+                // real on slower hardware — that's prompt processing, not
+                // something streaming can hide — so these reassurances
+                // still matter and are cleared the moment the first token
+                // arrives below.
+                const reassuranceTimer = setTimeout(function () {
+                    if (voiceActive) {
+                        setVoiceStatus('Still thinking — this can take a little longer for the first question...');
+                    }
+                }, 6000);
+                const secondReassuranceTimer = setTimeout(function () {
+                    if (voiceActive) {
+                        setVoiceStatus('Still working on it — local AI can be slow on the first run, hang tight...');
+                    }
+                }, 30000);
+
+                let liveBubble = null;
+                let liveText = '';
+                let spokenSanitizedLength = 0;
+
+                resetSpeechQueue();
+
+                const result = await askChatbotStream(question, {
+                    onToken: function (chunk) {
+                        if (!liveBubble) {
+                            // First token: stop being "Thinking...", start
+                            // being "Speaking..." — the whole point of
+                            // streaming here is that this now happens as
+                            // soon as the model produces its first word,
+                            // not after the entire answer has finished
+                            // generating.
+                            clearTimeout(reassuranceTimer);
+                            clearTimeout(secondReassuranceTimer);
+                            voiceOrb.classList.remove('thinking');
+                            voiceOrb.classList.add('speaking');
+                            setVoiceStatus('Speaking...');
+                            liveBubble = appendLiveBubble('Bot');
+                        }
+
+                        liveText += chunk;
+                        liveBubble.body.textContent = liveText;
+                        chatMessageArea.scrollTop = chatMessageArea.scrollHeight;
+
+                        // Pull out and speak any sentence that's now
+                        // confirmed complete (punctuation followed by more
+                        // text) — this is what lets voice mode start
+                        // talking while the rest of the answer is still
+                        // being generated, instead of waiting for
+                        // everything before saying a word.
+                        const sanitized = sanitizeForSpeech(liveText);
+                        const extracted = extractCompleteSentences(sanitized, spokenSanitizedLength);
+                        spokenSanitizedLength += extracted.consumedLength;
+                        extracted.sentences.forEach(queueSpeech);
+                    },
+                });
+
+                clearTimeout(reassuranceTimer);
+                clearTimeout(secondReassuranceTimer);
+
+                if (!voiceActive) {
+                    return;
+                }
+
+                if (!liveBubble) {
+                    liveBubble = appendLiveBubble('Bot');
+                    liveText = 'Something went wrong. Please try again.';
+                    liveBubble.body.textContent = liveText;
+                }
+
+                // Whatever's left after the stream ends — the final
+                // sentence, which couldn't be confirmed "complete" while
+                // more text might still have been coming — still needs to
+                // be spoken.
+                const finalSanitized = sanitizeForSpeech(liveText);
+                const remainder = finalSanitized.slice(spokenSanitizedLength).trim();
+                if (remainder) {
+                    queueSpeech(remainder);
+                }
+
+                finalizeBubbleSources(liveBubble.bubble, result.sources);
+                markSpeechQueueDone();
+            }
+
+            // Turns a possibly markdown-flavoured answer from the LLM into
+            // plain, speakable prose. Without this, literal "**", "-", "#"
+            // and numbered-list characters get read aloud (or mangled) by
+            // the speech synthesizer — that's a big part of what can make
+            // TTS output sound broken/robotic, independent of which voice
+            // is selected.
+            function sanitizeForSpeech(text) {
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '$1')
+                    .replace(/\*(.*?)\*/g, '$1')
+                    .replace(/^#{1,6}\s+/gm, '')
+                    .replace(/^\s*[-*•]\s+/gm, '')
+                    .replace(/^\s*\d+[.)]\s+/gm, '')
+                    .replace(/`([^`]*)`/g, '$1')
+                    .replace(/\r/g, '')
+                    .replace(/\n{2,}/g, '. ')
+                    .replace(/\n/g, '. ')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
+            }
+
+            // Splits cleaned text into sentence-sized pieces so it can be
+            // spoken as a short queue of utterances instead of one long
+            // run-on. Speaking sentence-by-sentence — with a small pause
+            // between each, added below — is what actually makes a voice
+            // sound like it's talking rather than reading; one long
+            // multi-sentence utterance keeps a flat, unbroken rhythm no
+            // matter which system voice is selected. Still used as-is for
+            // the greeting (a short, already-complete string) — the
+            // streaming answer path below uses extractCompleteSentences
+            // instead, which is the same idea applied incrementally to
+            // text that's still arriving.
+            function splitIntoSpeechSentences(text) {
+                const matches = text.match(/[^.!?]+[.!?]*(\s+|$)/g);
+                if (!matches) {
+                    return text ? [text] : [];
+                }
+                return matches
+                    .map(function (part) { return part.trim(); })
+                    .filter(function (part) { return part.length > 0; });
+            }
+
+            // Incremental version of the same idea: given text that may
+            // still be growing (more tokens on the way) and how much of it
+            // has already been consumed, returns only the sentences that
+            // are DEFINITELY complete — i.e. followed by more text, not
+            // just currently the last thing to have streamed in. Without
+            // that "followed by more text" check, a sentence boundary that
+            // just happens to be the newest token received would get
+            // spoken as if it were the end of the answer, when really the
+            // model simply hasn't produced the next word yet.
+            function extractCompleteSentences(text, fromIndex) {
+                const unprocessed = text.slice(fromIndex);
+                const matches = unprocessed.match(/[^.!?]+[.!?]+\s+/g);
+                if (!matches) {
+                    return { sentences: [], consumedLength: 0 };
+                }
+                const consumedLength = matches.join('').length;
+                const sentences = matches
+                    .map(function (s) { return s.trim(); })
+                    .filter(function (s) { return s.length > 0; });
+                return { sentences, consumedLength };
+            }
+
+            // ---------- Incremental speech queue ----------
+            // speakThenListen (below) speaks a complete, already-known
+            // string. This is the streaming equivalent: sentences get
+            // pushed in one at a time as extractCompleteSentences confirms
+            // them, and are spoken in order as soon as each previous one
+            // finishes — so speaking overlaps with generation instead of
+            // waiting for it. markSpeechQueueDone() signals "no more
+            // sentences are coming" once the stream ends; the queue only
+            // hands control back to the mic (via startVoiceListening) once
+            // it's both empty AND marked done.
+            let speechQueue = [];
+            let speechQueueSpeaking = false;
+            let speechQueueDone = false;
+
+            function resetSpeechQueue() {
+                speechQueue = [];
+                speechQueueSpeaking = false;
+                speechQueueDone = false;
+                if (supportsSpeechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+            }
+
+            function completeSpeechQueue() {
+                voiceOrb.classList.remove('speaking');
+                if (voiceActive) {
+                    startVoiceListening(true);
+                }
+            }
+
+            function driveSpeechQueue() {
+                if (speechQueue.length === 0) {
+                    speechQueueSpeaking = false;
+                    if (speechQueueDone) {
+                        completeSpeechQueue();
+                    }
+                    // else: nothing queued yet, but markSpeechQueueDone()
+                    // hasn't fired either — more sentences are still
+                    // expected, and queueSpeech() will restart the drain
+                    // when the next one arrives.
+                    return;
+                }
+
+                speechQueueSpeaking = true;
+                const sentenceText = speechQueue.shift();
+
+                if (!supportsSpeechSynthesis) {
+                    driveSpeechQueue();
+                    return;
+                }
+
+                const utterance = new SpeechSynthesisUtterance(sentenceText);
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice;
+                }
+                utterance.rate = VOICE_RATE;
+                utterance.pitch = VOICE_PITCH;
+                utterance.volume = 1;
+
+                let settled = false;
+                const advance = function () {
+                    if (settled) {
+                        return;
+                    }
+                    settled = true;
+                    clearTimeout(watchdog);
+                    // Same breathing-room reasoning as speakThenListen
+                    // below — a small pause between sentences reads as
+                    // natural speech rather than clipped-together audio.
+                    setTimeout(driveSpeechQueue, 220);
+                };
+                utterance.onend = advance;
+                utterance.onerror = advance;
+                const watchdog = setTimeout(advance, Math.max(2500, sentenceText.length * 90));
+
+                window.speechSynthesis.speak(utterance);
+            }
+
+            function queueSpeech(text) {
+                if (!text) {
+                    return;
+                }
+                speechQueue.push(text);
+                if (!speechQueueSpeaking) {
+                    driveSpeechQueue();
+                }
+            }
+
+            function markSpeechQueueDone() {
+                speechQueueDone = true;
+                if (!speechQueueSpeaking && speechQueue.length === 0) {
+                    completeSpeechQueue();
+                }
+            }
+
+            // Chrome (and Edge, same engine) has a long-standing
+            // speechSynthesis bug: calling cancel() immediately followed by
+            // speak() in the same tick can silently drop the new utterance
+            // — it never starts, and neither onend nor onerror ever fires.
+            // Before this fix, that meant the app got stuck showing
+            // "Speaking..." forever with no sound and the mic never
+            // reactivating — exactly what reads as "the greeting is either
+            // delayed or doesn't speak at all". Two defenses below: (1)
+            // only cancel when something is actually queued, and give
+            // Chrome a beat to flush that cancellation before queuing the
+            // next utterance, and (2) a per-sentence watchdog that forces
+            // things forward if the browser silently swallows an utterance,
+            // so a dropped utterance costs a few seconds of silence instead
+            // of hanging the whole voice session.
+            function speakThenListen(text, statusText) {
+                if (!supportsSpeechSynthesis) {
+                    if (voiceActive) {
+                        startVoiceListening();
+                    }
+                    return;
+                }
+
+                setVoiceStatus(statusText || 'Speaking...');
+                voiceOrb.classList.add('speaking');
+
+                const sentences = splitIntoSpeechSentences(sanitizeForSpeech(text));
+
+                // true: this is a genuine speaking-just-ended transition
+                // (the greeting or an answer just finished), so it's worth
+                // announcing "I'm listening" out loud — see the comment on
+                // startVoiceListening for why that's not done on every
+                // retry.
+                const finishSpeaking = function () {
+                    voiceOrb.classList.remove('speaking');
+                    if (voiceActive) {
+                        startVoiceListening(true);
+                    }
+                };
+
+                if (sentences.length === 0) {
+                    finishSpeaking();
+                    return;
+                }
+
+                const hadSomethingQueued = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+                if (hadSomethingQueued) {
+                    window.speechSynthesis.cancel();
+                }
+                // Chrome sometimes leaves the engine in a "paused" state
+                // after being idle for a while — resume() is a harmless
+                // no-op otherwise.
+                window.speechSynthesis.resume();
+
+                let index = 0;
+                const speakNext = function () {
+                    if (index >= sentences.length) {
+                        finishSpeaking();
+                        return;
+                    }
+
+                    const sentenceText = sentences[index];
+                    const utterance = new SpeechSynthesisUtterance(sentenceText);
+                    index += 1;
+
+                    if (preferredVoice) {
+                        utterance.voice = preferredVoice;
+                    }
+                    // See VOICE_RATE/VOICE_PITCH above for the reasoning —
+                    // a touch slower than normal reading speed, at a
+                    // neutral (not raised) pitch, reads as calmer and more
+                    // like a real person reassuring someone than a fast,
+                    // brighter-pitched voice does.
+                    utterance.rate = VOICE_RATE;
+                    utterance.pitch = VOICE_PITCH;
+                    utterance.volume = 1;
+
+                    let settled = false;
+                    const advance = function () {
+                        if (settled) {
+                            return;
+                        }
+                        settled = true;
+                        clearTimeout(watchdog);
+                        // A breath between sentences, instead of starting
+                        // the next one instantly, is what makes a
+                        // multi-sentence answer sound like natural speech
+                        // rather than clips stitched together. Widened
+                        // from 140ms to 220ms — long enough to read as an
+                        // unhurried, comforting pace without sentences
+                        // starting to feel disconnected from each other.
+                        setTimeout(speakNext, 220);
+                    };
+
+                    utterance.onend = advance;
+                    utterance.onerror = advance;
+
+                    // Sized generously (min 2.5s, plus time proportional to
+                    // sentence length) so it never cuts off real speech —
+                    // it only kicks in when the browser has genuinely
+                    // dropped the utterance and gone silent.
+                    const watchdog = setTimeout(advance, Math.max(2500, sentenceText.length * 90));
+
+                    window.speechSynthesis.speak(utterance);
+                };
+
+                // Give Chrome a beat to actually flush the cancellation
+                // before queuing the next utterance; skipped when nothing
+                // needed cancelling (e.g. the very first greeting) so that
+                // common case has no added delay.
+                if (hadSomethingQueued) {
+                    setTimeout(speakNext, 50);
+                } else {
+                    speakNext();
+                }
+            }
+
+            // A quick, warm greeting said as soon as voice mode opens,
+            // before it starts listening. Uses the same getTimeOfDayLabel()
+            // as the landing greeting above, but (deliberately) without the
+            // name — spoken aloud, "Good afternoon, employee." reads as
+            // stiffer than it does written. Picked randomly from a pool,
+            // same idea as the written landing greeting above: a voice
+            // assistant that says the exact same sentence every single
+            // time it opens reads as scripted/robotic, so this varies on
+            // its own with no admin/setting involved, same as the text
+            // greeting. Each option still ends in its own natural
+            // invitation to talk, which is what makes it feel like a
+            // greeting rather than a flat time announcement — and it
+            // becomes its own utterance (see speakThenListen), giving it a
+            // natural, distinct beat instead of running two lines together.
+            const voiceGreetingTemplates = [
+                'Good {time}. How can I help you today?',
+                'Good {time}. What can I do for you?',
+                "Hi there. What would you like to know?",
+                "Hey. I'm ready when you are.",
+                'Good {time}. Ask me anything about policy.',
+                "Hi. What's on your mind?",
+            ];
+
+            function getTimeBasedGreeting() {
+                const template = voiceGreetingTemplates[Math.floor(Math.random() * voiceGreetingTemplates.length)];
+                return template.replace(/\{time\}/g, getTimeOfDayLabel());
+            }
+
+            function openVoiceMode() {
+                voiceActive = true;
+                // Fresh session -> the spoken "I'm listening" announcement
+                // is worth hearing once again, even if a previous session
+                // earlier in the same page load already suppressed it.
+                hasAnnouncedListening = false;
+
+                // Leaves the idle landing screen the same way sending a
+                // typed message does — and re-parents the voice panel to
+                // the end of the message list, since earlier conversation
+                // (if any) may have been appended since it was last open.
+                removeEmptyState();
+                chatMessageArea.appendChild(voicePanel);
+
+                chatForm.hidden = true;
+                voiceComposerBar.hidden = false;
+                voicePanel.hidden = false;
+                voiceFallbackInput.value = '';
+                voiceTranscript.textContent = '';
+                voiceOrb.classList.remove('listening', 'thinking', 'speaking');
+                chatMessageArea.scrollTop = chatMessageArea.scrollHeight;
+
+                // Chrome/Edge sometimes need a first speak() call inside a
+                // real user gesture (this click) before they'll reliably
+                // play any audio at all in that page — without this, the
+                // very first greeting after the page loads was the one
+                // most likely to silently produce no sound. A near-silent,
+                // instant utterance "unlocks" the engine so the real
+                // greeting right after it is reliably heard.
+                if (supportsSpeechSynthesis) {
+                    try {
+                        const unlock = new SpeechSynthesisUtterance(' ');
+                        unlock.volume = 0;
+                        window.speechSynthesis.speak(unlock);
+                    } catch (e) {
+                        // Non-fatal — worst case the unlock trick didn't
+                        // apply and the greeting behaves as it did before.
+                    }
+                }
+
+                const greeting = getTimeBasedGreeting();
+                speakThenListen(greeting, greeting);
+            }
+
+            function closeVoiceMode() {
+                voiceActive = false;
+
+                if (voiceRecognition) {
+                    voiceRecognition.onend = null;
+                    voiceRecognition.onerror = null;
+                    voiceRecognition.stop();
+                    voiceRecognition = null;
+                }
+
+                // Clears the incremental speech queue too (not just
+                // whatever speechSynthesis happens to be saying right
+                // now) — otherwise a queued-but-not-yet-spoken sentence
+                // from an in-flight answer could still fire after the
+                // panel is closed, or markSpeechQueueDone() arriving late
+                // could call back into startVoiceListening() on a session
+                // that's no longer active.
+                resetSpeechQueue();
+
+                voiceOrb.classList.remove('listening', 'thinking', 'speaking');
+                voicePanel.hidden = true;
+                chatForm.hidden = false;
+                voiceComposerBar.hidden = true;
+                chatInput.focus();
+            }
+
+            if (supportsSpeechRecognition) {
+                voiceModeButton.addEventListener('click', openVoiceMode);
+            }
+
+            voiceCloseButton.addEventListener('click', closeVoiceMode);
+
+            voiceFallbackInput.addEventListener('keydown', async function (event) {
+                if (event.key !== 'Enter') {
+                    return;
+                }
+
+                const question = voiceFallbackInput.value.trim();
+                if (!question) {
+                    return;
+                }
+
+                voiceFallbackInput.value = '';
+
+                if (voiceRecognition) {
+                    voiceRecognition.onend = null;
+                    voiceRecognition.onerror = null;
+                    voiceRecognition.stop();
+                    voiceRecognition = null;
+                }
+
+                if (supportsSpeechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+
+                voiceOrb.classList.remove('listening', 'speaking');
+                await voiceSendQuestion(question);
+            });
+
+            // Esc closes voice mode, same as the X button.
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && !voicePanel.hidden) {
+                    closeVoiceMode();
+                }
+            });
+        })();
+    </script>
+}

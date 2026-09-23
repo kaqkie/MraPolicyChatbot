@@ -1,0 +1,19 @@
+## Build output
+bin/
+obj/
+
+## Visual Studio and VS Code
+.vs/
+.vscode/
+
+## User-specific settings
+*.user
+*.suo
+
+## Local configuration and secrets
+appsettings.Local.json
+appsettings.*.Local.json
+
+## OS metadata
+.DS_Store
+Thumbs.db

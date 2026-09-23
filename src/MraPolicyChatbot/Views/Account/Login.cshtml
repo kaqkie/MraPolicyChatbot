@@ -1,0 +1,44 @@
+@{
+    ViewData["Title"] = "Login";
+    Layout = "_LoginLayout";
+}
+
+<div class="login-card">
+    <div class="login-card-head">
+        <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 3.5h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1z" />
+                <path d="M14 3.5v4h4" />
+                <path d="M9 12.5h6" />
+                <path d="M9 16h6" />
+            </svg>
+        </span>
+        <div class="brand-name"><strong>Policy</strong> Desk</div>
+    </div>
+    <div class="login-card-body">
+        <div class="mb-4">
+            <div class="eyebrow">Staff access</div>
+            <h1>Welcome back.</h1>
+            <p class="text-muted mb-0">Sign in to consult approved policy.</p>
+        </div>
+
+        @if (ViewBag.ErrorMessage is not null)
+        {
+            <div class="alert alert-danger py-2" role="alert">
+                @ViewBag.ErrorMessage
+            </div>
+        }
+
+        <form asp-controller="Account" asp-action="Login" method="post">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" autocomplete="username" />
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" />
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Continue <span aria-hidden="true">&#8599;</span></button>
+        </form>
+    </div>
+</div>

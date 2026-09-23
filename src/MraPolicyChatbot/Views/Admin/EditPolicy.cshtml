@@ -1,0 +1,61 @@
+@model MraPolicyChatbot.Models.PolicyEditViewModel
+@{
+    ViewData["Title"] = "Edit Policy";
+}
+
+<div class="row">
+    <aside class="col-12 col-md-3 mb-3">
+        <partial name="_AdminSidebar" />
+    </aside>
+
+    <section class="col-12 col-md-9">
+        <h1 class="h3 mb-3">Edit Policy</h1>
+
+        @if (ViewBag.ErrorMessage is not null)
+        {
+            <div class="alert alert-danger py-2" role="alert">
+                @ViewBag.ErrorMessage
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-body">
+                <form asp-controller="Admin" asp-action="EditPolicy" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input type="text" class="form-control" id="title" name="title" value="@Model.Title" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Department</label>
+                        <select class="form-select" id="category" name="category" required>
+                            @foreach (var department in (IEnumerable<string>)ViewBag.Departments)
+                            {
+                                <option value="@department" selected="@(department == Model.Category)">@department</option>
+                            }
+                            @if (!((IEnumerable<string>)ViewBag.Departments).Contains(Model.Category))
+                            {
+                                <option value="@Model.Category" selected>@Model.Category (not in current list)</option>
+                            }
+                        </select>
+                        <div class="form-text">
+                            Don't see the right department? <a asp-controller="Admin" asp-action="Settings" asp-fragment="departments">Manage departments</a>.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="replacementFile" class="form-label">Replace file (optional)</label>
+                        <input type="file" class="form-control" id="replacementFile" name="replacementFile" accept=".pdf,.docx" />
+                        <div class="form-text">
+                            Only needed if the policy document itself has changed. PDF or DOCX, up to 20 MB.
+                            Uploading a new file here replaces the current one and automatically re-extracts its
+                            text and rebuilds search results — no separate step needed.
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <a asp-controller="Admin" asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+</div>

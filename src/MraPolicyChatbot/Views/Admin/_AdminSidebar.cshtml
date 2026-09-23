@@ -1,0 +1,13 @@
+@{
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+}
+
+<h2 class="h6 text-uppercase text-muted mb-2">Admin</h2>
+<div class="list-group">
+    <a asp-controller="Admin" asp-action="Index"
+       class="list-group-item list-group-item-action @(currentAction is "Index" ? "active" : "")">Dashboard</a>
+    <a asp-controller="Admin" asp-action="UploadPolicy"
+       class="list-group-item list-group-item-action @(currentAction is "UploadPolicy" ? "active" : "")">Upload Policy</a>
+    <a asp-controller="Admin" asp-action="Settings"
+       class="list-group-item list-group-item-action @(currentAction is "Settings" ? "active" : "")">Settings</a>
+</div>

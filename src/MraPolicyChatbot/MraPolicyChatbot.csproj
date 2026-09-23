@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Phase 2: data access layer (Dapper + SQL Server driver). -->
+    <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <!-- Phase 3: password hashing. -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <!-- Phase 5: document text extraction. NuGet package id is "PdfPig" —
+         "UglyToad.PdfPig" is only the C# namespace the package exposes
+         (see PdfTextExtractor.cs's `using`); a different, unofficial
+         package happens to own the "UglyToad.PdfPig" id on nuget.org and
+         only publishes prereleases, which is what NU1103 was resolving to
+         before this was corrected. -->
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="2.20.0" />
+    <!-- Phase 5 add-on: local, free OCR fallback for scanned/image-only PDF
+         pages (see PdfTextExtractor.cs). Bundles its own native
+         tesseract/leptonica binaries for Windows (x86/x64) — no separate
+         install needed. No cloud/paid API involved, consistent with
+         CLAUDE.md's tooling constraints. -->
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+  </ItemGroup>
+
+  <!-- The English OCR language data used by the Tesseract fallback above
+       lives at App_Data\tessdata\eng.traineddata and is read straight from
+       the project folder via IWebHostEnvironment.ContentRootPath at
+       runtime (same pattern as PolicyStorage:BasePath) — no MSBuild
+       copy-to-output step needed. -->
+
+  <!-- Diagnostic fix: by default, .NET 8 precompiles Razor views (.cshtml)
+       into the assembly at build time, so editing a .cshtml file has NO
+       effect until a full rebuild produces a new assembly — a plain
+       "restart" (dotnet run again without a rebuild, or a browser refresh)
+       will keep serving the OLD compiled view. This package + the matching
+       .AddRazorRuntimeCompilation() call in Program.cs (scoped to
+       Development only) makes Razor re-parse .cshtml files from disk on
+       every request in dev, so view/markup edits appear on a normal
+       refresh. Requires a one-time `dotnet restore` after this is added. -->
+  <ItemGroup Condition="'$(Configuration)'=='Debug'">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.10" />
+  </ItemGroup>
+
+</Project>
