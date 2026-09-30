@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 namespace MraPolicyChatbot.Services;
 
 // Phase 3: small helpers around ASP.NET Core's built-in ISession so
@@ -26,6 +28,9 @@ public static class SessionExtensions
 
     public static string? GetRole(this ISession session) =>
         session.GetString(RoleKey);
+
+    public static string? GetAvatarUrl(this ISession session) =>
+        session.GetString("AvatarUrl");
 
     public static bool IsLoggedIn(this ISession session) =>
         session.GetUserId() is not null;

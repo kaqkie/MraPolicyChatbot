@@ -12,6 +12,12 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <!-- Phase 3: password hashing. -->
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <!-- Phase 5: document text extraction. NuGet package id is "PdfPig" —
          "UglyToad.PdfPig" is only the C# namespace the package exposes
          (see PdfTextExtractor.cs's `using`); a different, unofficial

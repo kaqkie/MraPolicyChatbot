@@ -334,12 +334,90 @@ body {
   display: flex;
   align-items: center;
   gap: .5rem;
-  padding: .35rem .45rem .35rem .7rem;
+  padding: .35rem .45rem .35rem .45rem;
   border: 1px solid #d7dce1;
   border-radius: 999px;
   background: var(--mra-surface);
   box-shadow: 0 5px 18px rgba(15, 23, 42, .1);
   transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+/* ---------- Profile / avatar dropdown (header) ---------- */
+.profile-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.profile-avatar,
+.profile-avatar-lg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+.profile-initials {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(155deg, #1c5a35 0%, var(--mra-green) 55%, #082d16 100%);
+  color: #fff;
+  font-weight: 600;
+}
+.profile-initials-lg {
+  width: 56px;
+  height: 56px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(155deg, #1c5a35 0%, var(--mra-green) 55%, #082d16 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.profile-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + .5rem);
+  min-width: 220px;
+  background: var(--mra-surface);
+  border: 1px solid var(--mra-border);
+  border-radius: .6rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+  padding: .6rem;
+  z-index: 60;
+}
+.profile-panel-head {
+  display: flex;
+  gap: .6rem;
+  align-items: center;
+}
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+}
+.profile-name {
+  font-weight: 600;
+  color: var(--mra-text);
+}
+.profile-email {
+  font-size: .85rem;
+  color: var(--mra-muted);
+}
+.profile-role {
+  font-size: .8rem;
+  color: var(--mra-muted);
+}
+.btn-block {
+  display: block;
+  width: 100%;
 }
 
 .chat-composer:focus-within {
