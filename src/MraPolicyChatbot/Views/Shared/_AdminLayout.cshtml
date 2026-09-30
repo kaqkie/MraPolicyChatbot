@@ -1,0 +1,57 @@
+@{
+    Layout = "_Layout"; // base site layout
+}
+<!-- Admin layout for Policy Desk admin area -->
+@* Uses the main _Layout for scripts/styles but provides a fixed sidebar and content container *@
+<div class="admin-root d-flex">
+    <aside class="admin-sidebar">
+        <div class="admin-sidebar-inner">
+            <a asp-controller="Home" asp-action="Index" class="admin-brand d-flex align-items-center gap-2">
+                <span class="admin-brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="3" width="18" height="18" rx="4" fill="#0F4A2A" />
+                        <path d="M7 8h10v1H7zM7 11h10v1H7z" fill="#fff" />
+                    </svg>
+                </span>
+                <span class="admin-brand-name"><strong>Policy</strong> <span class="light">Desk</span></span>
+            </a>
+
+            <div class="admin-section-label">ADMIN</div>
+
+            <nav class="admin-nav" aria-label="Admin navigation">
+                <a asp-controller="Admin" asp-action="Index" class="admin-nav-item" aria-current="page">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a asp-controller="Admin" asp-action="UploadPolicy" class="admin-nav-item">
+                    <span class="nav-icon">⬆️</span>
+                    <span class="nav-text">Upload policy</span>
+                </a>
+                <a asp-controller="Admin" asp-action="Settings" asp-fragment="departments" class="admin-nav-item">
+                    <span class="nav-icon">📂</span>
+                    <span class="nav-text">Departments</span>
+                </a>
+                <a asp-controller="Admin" asp-action="Settings" class="admin-nav-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </a>
+            </nav>
+
+            <div class="admin-sidebar-footer">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="avatar-sm">A</div>
+                    <div>
+                        <div class="fw-600">Admin</div>
+                        <div class="muted small">Internal use only</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="admin-main">
+        <div class="container admin-container">
+            @RenderBody()
+        </div>
+    </main>
+</div>
