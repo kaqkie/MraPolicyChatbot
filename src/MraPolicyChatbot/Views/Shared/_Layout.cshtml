@@ -71,7 +71,10 @@
             </div>
         </nav>
     </header>
-    <div class="container app-container">
+    @{
+        var isAdmin = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").Equals("Admin", System.StringComparison.OrdinalIgnoreCase);
+    }
+    <div class="container app-container@(isAdmin ? " app-container-admin" : "")">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MraPolicyChatbot.Data;
 using MraPolicyChatbot.Filters;
 using MraPolicyChatbot.Models;
@@ -6,7 +6,7 @@ using MraPolicyChatbot.Services;
 
 namespace MraPolicyChatbot.Controllers;
 
-// Phase 4: real policy document management — list, upload, edit metadata
+// Phase 4: real policy document management â€” list, upload, edit metadata
 // and (optionally) the underlying file itself, and view the original
 // uploaded file. No delete UI yet.
 // Phase 5: kicks off text extraction/chunking after upload, after a file
@@ -69,6 +69,82 @@ public class AdminController : Controller
         }
 
         return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Departments()
+    {
+        var departments = await _settingsRepository.GetDepartmentListAsync();
+        var counts = await _policyRepository.GetCountsByCategoryAsync();
+
+        ViewBag.Departments = departments;
+        ViewBag.DepartmentCounts = counts;
+
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddDepartment(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            TempData["SettingsErrorMessage"] = "Department name cannot be empty.";
+            return RedirectToAction(nameof(Departments));
+        }
+
+        var list = await _settingsRepository.GetDepartmentListAsync();
+        if (!list.Contains(name, StringComparer.OrdinalIgnoreCase))
+        {
+            list.Add(name.Trim());
+            await _settingsRepository.SetDepartmentListAsync(list);
+            TempData["SettingsSuccessMessage"] = "Department added.";
+        }
+
+        return RedirectToAction(nameof(Departments));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RenameDepartment(string oldName, string newName)
+    {
+        if (string.IsNullOrWhiteSpace(oldName) || string.IsNullOrWhiteSpace(newName))
+        {
+            TempData["SettingsErrorMessage"] = "Invalid names.";
+            return RedirectToAction(nameof(Departments));
+        }
+
+        var list = await _settingsRepository.GetDepartmentListAsync();
+        var idx = list.FindIndex(d => string.Equals(d, oldName, StringComparison.OrdinalIgnoreCase));
+        if (idx >= 0)
+        {
+            list[idx] = newName.Trim();
+            await _settingsRepository.SetDepartmentListAsync(list);
+            TempData["SettingsSuccessMessage"] = "Department renamed.";
+        }
+
+        return RedirectToAction(nameof(Departments));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteDepartment(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            TempData["SettingsErrorMessage"] = "Invalid name.";
+            return RedirectToAction(nameof(Departments));
+        }
+
+        var list = await _settingsRepository.GetDepartmentListAsync();
+        var removed = list.RemoveAll(d => string.Equals(d, name, StringComparison.OrdinalIgnoreCase)) > 0;
+        if (removed)
+        {
+            await _settingsRepository.SetDepartmentListAsync(list);
+            TempData["SettingsSuccessMessage"] = "Department deleted.";
+        }
+
+        return RedirectToAction(nameof(Departments));
     }
 
     [HttpGet]
@@ -247,7 +323,7 @@ public class AdminController : Controller
 
         if (fileReplaced)
         {
-            // Best-effort cleanup of the file we just replaced — a failure
+            // Best-effort cleanup of the file we just replaced â€” a failure
             // here (e.g. locked file) shouldn't block the save, since the
             // database now correctly points at the new one either way.
             if (!string.IsNullOrEmpty(oldFilePathToDelete))
@@ -267,7 +343,7 @@ public class AdminController : Controller
             }
 
             TriggerProcessing(id);
-            TempData["PolicySuccessMessage"] = "Policy updated — the new file is being processed now. Refresh this page in a moment to see the chunk count.";
+            TempData["PolicySuccessMessage"] = "Policy updated â€” the new file is being processed now. Refresh this page in a moment to see the chunk count.";
         }
         else
         {
@@ -290,12 +366,12 @@ public class AdminController : Controller
         if (!System.IO.File.Exists(physicalPath))
         {
             // A bare 404 here used to leave the admin staring at the
-            // browser's generic "not found" page with no idea why — send
+            // browser's generic "not found" page with no idea why â€” send
             // them back to the list with an explanation and the fix
             // instead (same underlying situation ProcessPolicyAsync now
             // reports more clearly too).
             TempData["PolicyErrorMessage"] =
-                $"\"{policy.Title}\"'s file can't be found in server storage anymore. Use Edit → Replace file to re-upload it.";
+                $"\"{policy.Title}\"'s file can't be found in server storage anymore. Use Edit â†’ Replace file to re-upload it.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -310,7 +386,7 @@ public class AdminController : Controller
     }
 
     // Previously missing (see the class comment above, and the old
-    // "No delete UI yet" note it carried) — there was no way to clear out
+    // "No delete UI yet" note it carried) â€” there was no way to clear out
     // a policy that will never process successfully (e.g. its file was
     // lost from server storage and there's no copy to re-upload) short of
     // editing the database directly. Removes the chunks, the physical file
@@ -339,7 +415,7 @@ public class AdminController : Controller
             }
             catch (Exception ex)
             {
-                // Best-effort — a locked/already-missing file shouldn't
+                // Best-effort â€” a locked/already-missing file shouldn't
                 // block removing the record itself.
                 _logger.LogWarning(ex, "Could not delete stored file for policy {PolicyId} during deletion.", id);
             }
@@ -379,7 +455,7 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveGeneralSettings(
         string? ollamaBaseUrl, string? ollamaEmbeddingModel, string? ollamaChatModel,
-        string? similarityThreshold, string? departmentList)
+        string? similarityThreshold)
     {
         if (string.IsNullOrWhiteSpace(ollamaBaseUrl) ||
             string.IsNullOrWhiteSpace(ollamaEmbeddingModel) ||
@@ -406,23 +482,12 @@ public class AdminController : Controller
             return RedirectToAction(nameof(Settings));
         }
 
-        var departments = (departmentList ?? string.Empty)
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-
-        if (departments.Count == 0)
-        {
-            TempData["SettingsErrorMessage"] = "The department list can't be empty — Upload Policy needs at least one option.";
-            return RedirectToAction(nameof(Settings));
-        }
-
         await _settingsRepository.SetValueAsync(AppSettingsRepository.OllamaBaseUrlKey, ollamaBaseUrl.Trim());
         await _settingsRepository.SetValueAsync(AppSettingsRepository.OllamaEmbeddingModelKey, ollamaEmbeddingModel.Trim());
         await _settingsRepository.SetValueAsync(AppSettingsRepository.OllamaChatModelKey, ollamaChatModel.Trim());
         await _settingsRepository.SetValueAsync(
             AppSettingsRepository.SimilarityThresholdKey,
             threshold.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        await _settingsRepository.SetDepartmentListAsync(departments);
 
         TempData["SettingsSuccessMessage"] = "Settings saved.";
         return RedirectToAction(nameof(Settings));
@@ -437,7 +502,7 @@ public class AdminController : Controller
 
         if (user is null)
         {
-            // Session says logged in but the account is gone — shouldn't
+            // Session says logged in but the account is gone â€” shouldn't
             // normally happen; fail safely rather than guess.
             TempData["PasswordErrorMessage"] = "Could not find your account. Please log out and back in.";
             return RedirectToAction(nameof(Settings));

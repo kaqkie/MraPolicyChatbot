@@ -3,7 +3,7 @@
 }
 <!-- Admin layout for Policy Desk admin area -->
 @* Uses the main _Layout for scripts/styles but provides a fixed sidebar and content container *@
-<div class="admin-root d-flex">
+<div class="admin-root d-flex admin-dark">
     <aside class="admin-sidebar">
         <div class="admin-sidebar-inner">
             <a asp-controller="Home" asp-action="Index" class="admin-brand d-flex align-items-center gap-2">
@@ -18,20 +18,25 @@
 
             <div class="admin-section-label">ADMIN</div>
 
+            @{
+                var currentController = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").ToLowerInvariant();
+                var currentAction = (ViewContext.RouteData.Values["action"]?.ToString() ?? "").ToLowerInvariant();
+                string NavItem(string action) => (currentController == "admin" && currentAction == action.ToLowerInvariant()) ? "admin-nav-item active" : "admin-nav-item";
+            }
             <nav class="admin-nav" aria-label="Admin navigation">
-                <a asp-controller="Admin" asp-action="Index" class="admin-nav-item" aria-current="page">
+                <a asp-controller="Admin" asp-action="Index" class="@NavItem("Index")">
                     <span class="nav-icon">🏠</span>
                     <span class="nav-text">Dashboard</span>
                 </a>
-                <a asp-controller="Admin" asp-action="UploadPolicy" class="admin-nav-item">
+                <a asp-controller="Admin" asp-action="UploadPolicy" class="@NavItem("UploadPolicy")">
                     <span class="nav-icon">⬆️</span>
                     <span class="nav-text">Upload policy</span>
                 </a>
-                <a asp-controller="Admin" asp-action="Settings" asp-fragment="departments" class="admin-nav-item">
+                <a asp-controller="Admin" asp-action="Departments" class="@NavItem("Departments")">
                     <span class="nav-icon">📂</span>
                     <span class="nav-text">Departments</span>
                 </a>
-                <a asp-controller="Admin" asp-action="Settings" class="admin-nav-item">
+                <a asp-controller="Admin" asp-action="Settings" class="@NavItem("Settings")">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-text">Settings</span>
                 </a>
@@ -50,8 +55,10 @@
     </aside>
 
     <main class="admin-main">
-        <div class="container admin-container">
+        <div class="admin-container">
             @RenderBody()
         </div>
     </main>
 </div>
+
+@await RenderSectionAsync("Scripts", required: false)

@@ -15,6 +15,26 @@ public class PolicyRepository
         _connectionFactory = connectionFactory;
     }
 
+    public async Task<Dictionary<string,int>> GetCountsByCategoryAsync()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        const string sql = @"
+            SELECT Category, COUNT(*) AS C
+            FROM dbo.Policies
+            GROUP BY Category;";
+
+        var rows = await connection.QueryAsync(sql);
+        var dict = new Dictionary<string,int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in rows)
+        {
+            string cat = r.Category ?? string.Empty;
+            int c = (int)r.C;
+            dict[cat] = c;
+        }
+
+        return dict;
+    }
+
     public async Task<IEnumerable<Policy>> GetAllAsync()
     {
         using var connection = _connectionFactory.CreateConnection();

@@ -21,6 +21,141 @@
   --bs-link-hover-color-rgb: 8, 45, 22;
 }
 
+/* ---------- Admin UI styles ---------- */
+:root {
+  --admin-bg: #ffffff;
+  --admin-surface: #ffffff;
+  --admin-border: #e5e7eb;
+  --admin-text: #111827;
+  --admin-muted: #6b7280;
+  --admin-green: #0F4A2A;
+  --admin-green-tint: #E8F2EC;
+}
+
+.admin-root { min-height: 100vh; }
+.admin-root { display: flex; }
+.admin-sidebar {
+  width: 230px;
+  background: var(--admin-surface);
+  border-right: 1px solid var(--admin-border);
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  padding: 24px 18px;
+}
+.admin-sidebar-inner { display:flex; flex-direction:column; height:100%; }
+.admin-brand { color: var(--admin-text); text-decoration:none; }
+.admin-brand-mark { width:36px; height:36px; display:inline-grid; place-items:center; border-radius:8px; }
+.admin-brand-name { font-size:15px; }
+.admin-brand-name .light { font-weight:400; }
+.admin-section-label { margin-top:18px; font-size:12px; color:var(--admin-muted); font-weight:600; letter-spacing:.08em; }
+.admin-nav { margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+.admin-nav-item { display:flex; gap:10px; align-items:center; padding:10px 12px; border-radius:12px; color:var(--admin-text); text-decoration:none; }
+.admin-nav-item .nav-icon{ width:24px; text-align:center; }
+.admin-nav-item:hover { background: #f8faf8; }
+.admin-nav-item.active { background: var(--admin-green-tint); color:var(--admin-green); }
+.admin-sidebar-footer { margin-top:auto; padding-top:12px; border-top:1px solid var(--admin-border); }
+.avatar-sm { width:36px; height:36px; border-radius:50%; background:var(--admin-green); color:#fff; display:inline-grid; place-items:center; font-weight:700; }
+
+.admin-main { margin-left:230px; padding:28px 24px; flex: 1 1 auto; width: 100%; min-width: 0; }
+.admin-container { width: 100%; max-width: none; padding: 0; }
+.admin-page h1 { color:var(--admin-text); }
+.muted { color:var(--admin-muted); }
+
+.card { background:var(--admin-surface); border:1px solid var(--admin-border); border-radius:14px; }
+.stat-card { padding:14px; border:1px solid var(--admin-border); border-radius:12px; background:var(--admin-surface); width:180px; }
+.stats-row { display:flex; gap:12px; margin-bottom:12px; }
+.stat-card .label { color:var(--admin-muted); font-size:13px; }
+.stat-card .value { font-size:22px; font-weight:700; color:var(--admin-text); }
+
+.table-toolbar { display:flex; align-items:center; gap:8px; }
+.file-drop { border:2px dashed var(--admin-border); padding:18px; border-radius:12px; cursor:pointer; }
+.file-drop:focus { outline:3px solid rgba(15,74,42,0.12); }
+.file-drop.dragover { background:var(--admin-green-tint); }
+.chosen-file { margin-top:8px; }
+
+.btn-primary { background:var(--admin-green); border-color:var(--admin-green); }
+.btn-primary:hover, .btn-primary:focus { background:#0d3d22; border-color:#0d3d22; }
+
+/* Responsive: collapse sidebar into top strip under 800px */
+@media (max-width: 1024px) {
+  .admin-sidebar { position:static; width:100%; height:auto; display:flex; padding:12px; border-right:none; border-bottom:1px solid var(--admin-border); }
+  .admin-main { margin-left:0; padding:16px; }
+  .admin-root { flex-direction:column; }
+  .admin-nav { flex-direction:row; overflow:auto; }
+}
+
+/* Tablet: two stats columns */
+@media (max-width: 900px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mobile: single column stats */
+@media (max-width: 576px) {
+  .stats-row { grid-template-columns: 1fr; }
+}
+
+/* Dark-mode variant */
+/* Also allow forcing dark admin theme via .admin-root.admin-dark */
+.admin-root.admin-dark,
+@media (prefers-color-scheme: dark) {
+  :root,
+  .admin-root.admin-dark {
+    --admin-bg: #07120f;
+    --admin-surface: #0b1713;
+    --admin-border: rgba(255,255,255,0.04);
+    --admin-text: #E6F2EA;
+    --admin-muted: #9AA69A;
+    --admin-green: #0F4A2A;
+    --admin-green-tint: rgba(15,74,42,0.12);
+    --danger: #B44B4B;
+  }
+
+  .admin-root.admin-dark, body { background: var(--admin-bg); color: var(--admin-text); }
+
+  .app-nav, .app-footer { background: transparent; border-color: rgba(255,255,255,0.03); }
+
+  .admin-root.admin-dark .admin-sidebar { background: #06110e; border-right: 1px solid rgba(255,255,255,0.03); }
+  .admin-root.admin-dark .admin-brand-name,
+  .admin-root.admin-dark .admin-nav-item,
+  .admin-root.admin-dark .admin-sidebar-footer { color: var(--admin-text); }
+
+  .admin-root.admin-dark .admin-nav-item { color: var(--admin-text); }
+  .admin-root.admin-dark .admin-nav-item:hover { background: rgba(255,255,255,0.02); }
+  .admin-root.admin-dark .admin-nav-item[aria-current="page"] { background: var(--admin-green-tint); color: var(--admin-green); }
+
+  .admin-root.admin-dark .admin-main { background: transparent; }
+
+  .admin-root.admin-dark .card { background: var(--admin-surface); border-color: var(--admin-border); box-shadow: none; }
+  .admin-root.admin-dark .stat-card { background: transparent; border-color: rgba(255,255,255,0.03); }
+
+  .admin-root.admin-dark .table-responsive { background: transparent; }
+  .table-responsive { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .admin-root.admin-dark .table-responsive { overflow-x: auto; }
+  .admin-root.admin-dark table.table { color: var(--admin-text); }
+  .admin-root.admin-dark table.table thead { color: var(--admin-muted); border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .admin-root.admin-dark table.table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.02); }
+  .admin-root.admin-dark .table-hover tbody tr:hover { background: rgba(255,255,255,0.012); }
+
+  .admin-root.admin-dark .badge.bg-success { background: #1f8a4f; }
+  .admin-root.admin-dark .badge.bg-danger { background: #b34b4b; }
+
+  .admin-root.admin-dark .alert-danger { background: rgba(180,75,75,0.12); border-color: rgba(255,255,255,0.02); color: #FFD6D6; }
+
+  .admin-root.admin-dark .btn-outline-secondary { border-color: rgba(255,255,255,0.04); color: var(--admin-text); background: transparent; }
+  .admin-root.admin-dark .btn-outline-danger { border-color: rgba(255,255,255,0.04); color: #ff8b8b; background: transparent; }
+
+  .admin-root.admin-dark .btn-primary { background: var(--admin-green); border-color: var(--admin-green); color: #fff; }
+  .admin-root.admin-dark .btn-primary:hover, .admin-root.admin-dark .btn-primary:focus { background: #0b3d22; border-color: #0b3d22; }
+
+  .admin-root.admin-dark .file-drop { background: rgba(255,255,255,0.01); border-color: rgba(255,255,255,0.03); }
+  .admin-root.admin-dark .file-drop.dragover { background: rgba(15,74,42,0.08); }
+
+  .admin-root.admin-dark .chosen-file { color: var(--admin-muted); }
+  .admin-root.admin-dark .muted { color: var(--admin-muted); }
+  .admin-root.admin-dark .avatar-sm { background: var(--admin-green); color: #fff; }
+}
+
+
 .btn-primary {
   --bs-btn-hover-bg: var(--mra-green-hover);
   --bs-btn-hover-border-color: var(--mra-green-hover);
@@ -134,6 +269,14 @@ body {
   max-width: 1080px;
   padding-top: 1.75rem;
   padding-bottom: 2rem;
+}
+
+/* When admin wants full-width content, opt out of the centered container */
+.app-container.app-container-admin {
+  max-width: none;
+  width: 100%;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .app-footer {

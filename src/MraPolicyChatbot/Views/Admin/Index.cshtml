@@ -3,15 +3,40 @@
     Layout = "_AdminLayout";
     ViewData["Title"] = "Policy management";
 
-    // Sample data fallback when Model is null or empty
+    // Sample data fallback when Model is null or empty.
+    // NOTE: both this array and the projection below MUST have identical
+    // property names, types and order (int Id, string Title, string Dept,
+    // string Uploaded, string Status, int Chunks) or the ternary won't compile.
     var sample = new[] {
-        new {Title = "Code of Conduct and Ethics", Dept = "Internal Affairs", Status = "Failed", Chunks = 0},
-        new {Title = "Disciplinary and Grievance Procedure", Dept = "Human Resource and Organisation Development", Status = "Processed", Chunks = 2},
-        new {Title = "ICT Acceptable Use Policy", Dept = "Information & Communication Technology (ICT)", Status = "Processed", Chunks = 2},
-        new {Title = "Staff Leave and Absence Policy", Dept = "Human Resource and Organisation Development", Status = "Processed", Chunks = 2},
-        new {Title = "Travel and Subsistence Policy", Dept = "Finance", Status = "Processed", Chunks = 2},
-        new {Title = "Working Hours and Attendance Policy", Dept = "Human Resource and Organisation Development", Status = "Processed", Chunks = 2},
+        new { Id = 1, Title = "Code of Conduct and Ethics", Dept = "Internal Affairs", Uploaded = "15 Sep 2026", Status = "Failed", Chunks = 0 },
+        new { Id = 2, Title = "Disciplinary and Grievance Procedure", Dept = "Human Resource and Organisation Development", Uploaded = "15 Sep 2026", Status = "Processed", Chunks = 2 },
+        new { Id = 3, Title = "ICT Acceptable Use Policy", Dept = "Information & Communication Technology (ICT)", Uploaded = "15 Sep 2026", Status = "Processed", Chunks = 2 },
+        new { Id = 4, Title = "Staff Leave and Absence Policy", Dept = "Human Resource and Organisation Development", Uploaded = "15 Sep 2026", Status = "Processed", Chunks = 2 },
+        new { Id = 5, Title = "Travel and Subsistence Policy", Dept = "Finance", Uploaded = "15 Sep 2026", Status = "Processed", Chunks = 2 },
+        new { Id = 6, Title = "Working Hours and Attendance Policy", Dept = "Human Resource and Organisation Development", Uploaded = "15 Sep 2026", Status = "Processed", Chunks = 2 },
     };
+
+    var rows = (Model != null && Model.Count > 0)
+        ? Model.Select(m => new
+          {
+              Id = m.Id,
+              Title = m.Title,
+              Dept = m.Category,
+              Uploaded = m.UploadDate.ToString("dd MMM yyyy"),
+              Status = m.IsProcessed
+                  ? "Processed"
+                  : (string.IsNullOrEmpty(m.ProcessingError) ? "Processing" : "Failed"),
+              Chunks = m.ChunkCount
+          }).ToArray()
+        : sample;
+
+    // Stats derived from the rows actually shown
+    var totalCount = rows.Length;
+    var processedCount = rows.Count(r => r.Status == "Processed");
+    var failedRows = rows.Where(r => r.Status == "Failed").ToList();
+    var failedCount = failedRows.Count;
+    var totalChunks = rows.Sum(r => r.Chunks);
+    var firstFailed = failedRows.FirstOrDefault();
 }
 
 <div class="admin-page">
@@ -28,31 +53,46 @@
     <div class="stats-row mb-3">
         <div class="stat-card">
             <div class="label">Total policies</div>
-            <div class="value">6</div>
+            <div class="value">@totalCount</div>
         </div>
         <div class="stat-card">
             <div class="label">Processed</div>
-            <div class="value">5</div>
+            <div class="value">@processedCount</div>
         </div>
         <div class="stat-card">
             <div class="label">Failed</div>
-            <div class="value text-danger">1</div>
+            <div class="value @(failedCount > 0 ? "text-danger" : "")">@failedCount</div>
         </div>
         <div class="stat-card">
             <div class="label">Total chunks</div>
-            <div class="value">10</div>
+            <div class="value">@totalChunks</div>
         </div>
     </div>
 
-    <div id="failureBanner" class="alert alert-danger d-flex justify-content-between align-items-center mb-3" role="alert" style="display:block">
-        <div>Code of Conduct and Ethics failed to process and can't be searched yet</div>
-        <div>
-            <form asp-controller="Admin" asp-action="ReprocessPolicy" method="post" class="d-inline">
-                <input type="hidden" name="id" value="1" />
-                <button type="submit" class="btn btn-outline-light btn-sm text-danger">Retry now</button>
-            </form>
+    @if (firstFailed != null)
+    {
+        <div id="failureBanner" class="alert alert-danger d-flex justify-content-between align-items-center mb-3" role="alert">
+            <div>
+                @if (failedCount == 1)
+                {
+                    <text>@firstFailed.Title failed to process and can't be searched yet</text>
+                }
+                else
+                {
+                    <text>@failedCount policies failed to process and can't be searched yet</text>
+                }
+            </div>
+            @if (failedCount == 1)
+            {
+                <div>
+                    <form asp-controller="Admin" asp-action="ReprocessPolicy" method="post" class="d-inline">
+                        <input type="hidden" name="id" value="@firstFailed.Id" />
+                        <button type="submit" class="btn btn-outline-light btn-sm text-danger">Retry now</button>
+                    </form>
+                </div>
+            }
         </div>
-    </div>
+    }
 
     <div class="card">
         <div class="card-body">
@@ -61,6 +101,7 @@
                 <select id="statusFilter" class="form-select form-select-sm" style="width:210px">
                     <option value="">All statuses</option>
                     <option value="Processed">Processed</option>
+                    <option value="Processing">Processing</option>
                     <option value="Failed">Failed</option>
                 </select>
             </div>
@@ -78,12 +119,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var row in (Model != null && Model.Count > 0 ? Model.Select(m => new {Title=m.Title, Dept=m.Category, Uploaded = m.UploadDate.ToString("dd MMM yyyy"), Status = m.IsProcessed ? "Processed" : (string.IsNullOrEmpty(m.ProcessingError)? "Processing" : "Failed"), Chunks = m.ChunkCount}) : sample))
+                        @foreach (var row in rows)
                         {
                             <tr data-status="@row.Status">
                                 <td><strong>@row.Title</strong></td>
                                 <td class="muted">@row.Dept</td>
-                                <td class="muted">15 Sep 2026</td>
+                                <td class="muted">@row.Uploaded</td>
                                 <td>
                                     @if (row.Status == "Processed")
                                     {
@@ -103,8 +144,11 @@
                                     <div class="d-flex gap-2 justify-content-end">
                                         <a class="btn btn-outline-secondary btn-sm">View</a>
                                         <a class="btn btn-outline-secondary btn-sm">Edit</a>
-                                        <button class="btn btn-outline-secondary btn-sm">Retry</button>
-                                        <button class="btn btn-outline-danger btn-sm">Delete</button>
+                                        <form asp-controller="Admin" asp-action="ReprocessPolicy" method="post" class="d-inline">
+                                            <input type="hidden" name="id" value="@row.Id" />
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm">Retry</button>
+                                        </form>
+                                        <button type="button" class="btn btn-outline-danger btn-sm">Delete</button>
                                     </div>
                                 </td>
                             </tr>
