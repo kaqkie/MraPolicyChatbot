@@ -19,15 +19,7 @@
                     <h2 class="h6 mb-3">Assistant</h2>
                     <form asp-controller="Admin" asp-action="SaveGeneralSettings" method="post">
                         @Html.AntiForgeryToken()
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <div>
-                                <div class="fw-600">Voice responses</div>
-                                <div class="muted small">Read answers aloud when available</div>
-                            </div>
-                            <div>
-                                <input type="checkbox" id="voiceToggle" name="VoiceResponses" class="form-check-input" />
-                            </div>
-                        </div>
+                        @* Voice responses removed per request *@
 
                         <div class="d-flex align-items-center justify-content-between mb-3">
                             <div>
